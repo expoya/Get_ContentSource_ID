@@ -252,28 +252,57 @@
     }
 
     // Versucht, eine ID aus diversen möglichen Feldern zu ziehen
-    function extractId(data){
-      if(!data) return null;
-      if(typeof data === 'string'){
-        const m = data.match(/[0-9a-f]{8}-[0-9a-f]{4}-[1-5v][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i);
-        return m ? m[0] : data.length <= 64 ? data.trim() : null;
-      }
-      const candidates = [
-        'contentSourceId','content_source_id','contentsource_id','ContentSourceId',
-        'contentSourceID','id','Id','ID','cs_id','content_id'
-      ];
-      for(const key of candidates){
-        if (key in data && data[key]) return String(data[key]);
-      }
-      for(const k of Object.keys(data)){
-        const v = data[k];
-        if(v && typeof v === 'object'){
-          const inner = extractId(v);
-          if(inner) return inner;
-        }
-      }
-      return null;
+   function extractId(payload){
+  // Falls String: erst versuchen zu parsen, dann Regex-Fallbacks
+  if (typeof payload === 'string') {
+    try { return extractId(JSON.parse(payload)); } catch {}
+    // explizit "ContentSource-ID" o.ä.
+    let m = payload.match(/"(?:content\s*source|contentsource)[\s_-]*id"\s*:\s*"([^"]+)"/i);
+    if (m) return m[1];
+    // generischer Fallback: UUID suchen
+    m = payload.match(/[0-9a-f]{8}-[0-9a-f]{4}-[1-5v][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i);
+    if (m) return m[0];
+    // oder ein kurzes "id": "…"
+    m = payload.match(/"id"\s*:\s*"([^"]{1,64})"/i);
+    if (m) return m[1];
+    return null;
+  }
+
+  if (!payload || typeof payload !== 'object') return null;
+
+  const norm = k => k.toLowerCase().replace(/[\s_\-]/g, '');
+  const isIdLike = k => (
+    k === 'contentsourceid' ||
+    k === 'contentid' ||
+    k === 'sourceid' ||
+    k === 'csid' ||
+    /content.*source.*id/.test(k) ||
+    /contentsource.*id/.test(k)
+  );
+
+  // 1) bevorzugt ContentSource-* IDs
+  for (const [k,v] of Object.entries(payload)) {
+    if (v == null) continue;
+    const nk = norm(k);
+    if (isIdLike(nk) && (typeof v === 'string' || typeof v === 'number')) {
+      return String(v);
     }
+  }
+  // 2) generisches "id"
+  for (const [k,v] of Object.entries(payload)) {
+    if (norm(k) === 'id' && (typeof v === 'string' || typeof v === 'number')) {
+      return String(v);
+    }
+  }
+  // 3) rekursiv durchsuchen
+  for (const v of Object.values(payload)) {
+    if (v && typeof v === 'object') {
+      const inner = extractId(v);
+      if (inner) return inner;
+    }
+  }
+  return null;
+}
 
     async function toClipboard(text){
       try{
