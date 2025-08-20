@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ContentSource-ID & WebsiteScraper · expoya</title>
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="Generiere eine ContentSource-ID und starte den Website-Scraper über n8n." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Ctext y='1em' font-size='96'%3E⚡%3C/text%3E%3C/svg%3E">
+  <style>
+    :root{
+      --bg:#0b0f14;
+      --panel:#0f1520;
+      --muted:#8aa0b6;
+      --text:#e6edf3;
+      --brand:#7dd3fc;
+      --brand-2:#60a5fa;
+      --ok:#34d399;
+      --err:#fb7185;
+      --border:rgba(255,255,255,0.08);
+      --shadow: 0 10px 30px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.04);
+      --radius:16px;
+    }
+    * { box-sizing: border-box }
+    html,body { height:100% }
+    body{
+      margin:0;
+      font:16px/1.5 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      color:var(--text);
+      background:
+        radial-gradient(1200px 800px at 10% -20%, rgba(96,165,250,0.12), transparent 60%),
+        radial-gradient(1200px 900px at 110% 10%, rgba(125,211,252,0.10), transparent 60%),
+        linear-gradient(180deg, #0b0f14 0%, #0b0f14 100%);
+      background-color:var(--bg);
+      display:grid;
+      place-items:center;
+      padding:24px;
+    }
+    .wrap{
+      width:100%;
+      max-width:860px;
+    }
+    header{
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+      margin-bottom:18px;
+    }
+    .brand{
+      display:flex; align-items:center; gap:12px; text-decoration:none; color:var(--text);
+    }
+    .logo{
+      width:44px; height:44px; border-radius:12px;
+      background:linear-gradient(135deg, var(--brand), var(--brand-2));
+      display:grid; place-items:center; font-weight:800; color:#0b1220; box-shadow:var(--shadow);
+    }
+    .title h1{ font-size:20px; margin:0; letter-spacing:.2px }
+    .title p{ margin:2px 0 0; color:var(--muted); font-size:13px }
+    .card{
+      background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border:1px solid var(--border);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+    .card .bar{
+      height:3px;
+      background:linear-gradient(90deg, var(--brand), var(--brand-2));
+    }
+    .content{ padding:22px }
+    .grid{
+      display:grid; gap:16px;
+      grid-template-columns: 1fr;
+    }
+    @media (min-width: 800px){
+      .grid{ grid-template-columns: minmax(0,1fr) 260px; align-items:start }
+    }
+    label{ display:block; font-weight:600; margin-bottom:6px }
+    .help{ color:var(--muted); font-size:13px; margin-top:6px }
+    .input{
+      width:100%; padding:14px 14px; border-radius:12px; color:var(--text);
+      background:#0b121b; border:1px solid var(--border); outline:none;
+    }
+    .input:focus{ border-color:rgba(125,211,252,0.45); box-shadow:0 0 0 4px rgba(125,211,252,0.15) }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center }
+    .btn{
+      appearance:none; border:1px solid var(--border); background:#0c131c; color:var(--text);
+      padding:12px 14px; border-radius:12px; cursor:pointer; font-weight:700;
+      transition:transform .04s ease, border-color .15s ease, box-shadow .15s ease;
+      box-shadow:var(--shadow);
+      display:inline-flex; gap:10px; align-items:center; justify-content:center;
+    }
+    .btn:hover{ border-color:rgba(125,211,252,0.35) }
+    .btn:active{ transform:translateY(1px) }
+    .btn.primary{
+      background:linear-gradient(135deg, rgba(125,211,252,0.15), rgba(96,165,250,0.15));
+      border-color:rgba(125,211,252,0.45);
+    }
+    .btn.icon{ padding:10px 12px }
+    .btn[disabled]{ opacity:.55; cursor:not-allowed }
+    .status{
+      display:flex; align-items:center; gap:10px; font-size:14px; margin-top:10px;
+    }
+    .status .dot{ width:10px; height:10px; border-radius:50%; background:var(--muted) }
+    .status.loading .dot{ background: linear-gradient(90deg, var(--brand), var(--brand-2)); animation:pulse 1s infinite alternate }
+    .status.ok .dot{ background: var(--ok) }
+    .status.err .dot{ background: var(--err) }
+    @keyframes pulse{ to{ filter:brightness(1.8) } }
+
+    .panel{
+      background:#0b121b; border:1px solid var(--border); border-radius:12px; padding:14px;
+    }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .id-badge{
+      display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 12px;
+      border:1px dashed rgba(125,211,252,0.35); border-radius:12px; background:rgba(125,211,252,0.06);
+    }
+    .muted{ color:var(--muted) }
+    pre{
+      margin:0; padding:12px; border-radius:10px; background:#081018; border:1px solid var(--border);
+      max-height:380px; overflow:auto; scrollbar-width:thin;
+    }
+    .footer{
+      padding:14px; background:#0a111a; border-top:1px solid var(--border); color:var(--muted); font-size:12px;
+      display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap;
+    }
+    a{ color:var(--brand) }
+    code.kbd{
+      background:#0b121b; border:1px solid var(--border); padding:0 6px; border-radius:6px; font-size:12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <a class="brand" href="#">
+        <div class="logo">EX</div>
+        <div class="title">
+          <h1>ContentSource-ID & WebsiteScraper</h1>
+          <p>Starte den n8n-Workflow, der die ContentSource-ID erzeugt, die Seite crawlt und Supabase initialisiert.</p>
+        </div>
+      </a>
+      <button id="resetBtn" class="btn icon" title="Zurücksetzen" aria-label="Zurücksetzen">↺</button>
+    </header>
+
+    <section class="card" role="region" aria-label="Generator">
+      <div class="bar" aria-hidden="true"></div>
+      <div class="content grid">
+
+        <!-- Linke Spalte: Formular -->
+        <div>
+          <label for="website">Website des Unternehmens</label>
+          <input id="website" class="input" type="url" inputmode="url" placeholder="https://beispielfirma.at" autocomplete="url" />
+          <div class="help">
+            Tipp: Protokoll angeben (<code class="kbd">https://</code>). Beispiel: <a href="#" id="exampleLink">https://expoya.com</a>
+          </div>
+
+          <div style="height:10px"></div>
+
+          <div class="row">
+            <button id="runBtn" class="btn primary">
+              <span>⚡ ContentSource-ID generieren und Website scrapen lassen</span>
+            </button>
+            <button id="copyCurlBtn" class="btn" title="cURL kopieren">cURL</button>
+          </div>
+
+          <div id="status" class="status"><span class="dot"></span><span class="msg">Bereit.</span></div>
+
+          <div style="height:14px"></div>
+
+          <div class="panel">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:8px;">
+              <strong>ContentSource-ID</strong>
+              <button id="copyIdBtn" class="btn icon" title="ID kopieren" disabled>⧉</button>
+            </div>
+            <div id="idBadge" class="id-badge">
+              <span id="idText" class="mono muted">Noch keine ID erzeugt.</span>
+              <span class="muted" style="font-size:12px">Aus Response extrahiert</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Rechte Spalte: Response -->
+        <div>
+          <label>Webhook-Response</label>
+          <div class="panel">
+            <pre id="response" class="mono muted">Noch keine Anfrage gesendet.</pre>
+          </div>
+        </div>
+
+      </div>
+      <div class="footer">
+        <div>Endpoint: <code class="mono" id="endpointLabel">https://expoya.app.n8n.cloud/webhook/get_contentsourceid</code></div>
+        <div>Hinweis: CORS muss im n8n-Webhook erlaubt sein (Origin: GitHub Pages).</div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // === Konfiguration ===
+    const WEBHOOK_URL = "https://expoya.app.n8n.cloud/webhook/get_contentsourceid";
+    const REQUEST_TIMEOUT_MS = 30000; // 30s
+
+    // === DOM-Refs ===
+    const websiteEl = document.getElementById('website');
+    const runBtn = document.getElementById('runBtn');
+    const statusEl = document.getElementById('status');
+    const statusMsg = statusEl.querySelector('.msg');
+    const responsePre = document.getElementById('response');
+    const idText = document.getElementById('idText');
+    const copyIdBtn = document.getElementById('copyIdBtn');
+    const copyCurlBtn = document.getElementById('copyCurlBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const endpointLabel = document.getElementById('endpointLabel');
+    const exampleLink = document.getElementById('exampleLink');
+
+    endpointLabel.textContent = WEBHOOK_URL;
+
+    // === Utilities ===
+    const saveLocal = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+    const loadLocal = (k, d=null) => { try { return JSON.parse(localStorage.getItem(k)) ?? d } catch { return d } }
+
+    function normalizeUrl(u){
+      if(!u) return '';
+      const trimmed = u.trim();
+      if(!/^https?:\/\//i.test(trimmed)) return 'https://' + trimmed;
+      return trimmed;
+    }
+
+    function isLikelyUrl(u){
+      try{
+        const {protocol, hostname} = new URL(normalizeUrl(u));
+        return ['http:', 'https:'].includes(protocol) && hostname.includes('.');
+      }catch{ return false; }
+    }
+
+    function setStatus(type, msg){
+      statusEl.classList.remove('loading','ok','err');
+      if(type) statusEl.classList.add(type);
+      statusMsg.textContent = msg;
+    }
+
+    function setLoading(loading){
+      runBtn.disabled = loading;
+      copyCurlBtn.disabled = loading;
+      websiteEl.disabled = loading;
+      setStatus(loading ? 'loading' : null, loading ? 'Wird gesendet…' : 'Bereit.');
+    }
+
+    function showResponse(objOrText){
+      if(typeof objOrText === 'string'){
+        responsePre.textContent = objOrText;
+        responsePre.classList.remove('muted');
+        return;
+      }
+      responsePre.textContent = JSON.stringify(objOrText, null, 2);
+      responsePre.classList.remove('muted');
+    }
+
+    // Versucht, eine ID aus diversen möglichen Feldern zu ziehen
+    function extractId(data){
+      if(!data) return null;
+      if(typeof data === 'string'){
+        // sehr einfache Heuristik: UUID v4 / v7 oder kurze IDs
+        const m = data.match(/[0-9a-f]{8}-[0-9a-f]{4}-[1-5v][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i);
+        return m ? m[0] : data.length <= 64 ? data.trim() : null;
+      }
+      const candidates = [
+        'contentSourceId','content_source_id','contentsource_id','ContentSourceId',
+        'contentSourceID','id','Id','ID','cs_id','content_id'
+      ];
+      for(const key of candidates){
+        if (key in data && data[key]) return String(data[key]);
+      }
+      // falls verschachtelt
+      for(const k of Object.keys(data)){
+        const v = data[k];
+        if(v && typeof v === 'object'){
+          const inner = extractId(v);
+          if(inner) return inner;
+        }
+      }
+      return null;
+    }
+
+    async function toClipboard(text){
+      try{
+        await navigator.clipboard.writeText(text);
+        return true;
+      }catch{
+        // Fallback: Auswahl in ein temporäres Textarea
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        return ok;
+      }
+    }
+
+    function buildCurl(url, payload){
+      const json = JSON.stringify(payload).replace(/"/g,'\\"');
+      return `curl -X POST '${url}' \\\n  -H 'Content-Type: application/json' \\\n  --data "${json}"`;
+    }
+
+    // === Events ===
+    exampleLink.addEventListener('click', (e)=>{
+      e.preventDefault();
+      websiteEl.value = "https://expoya.com";
+      websiteEl.focus();
+    });
+
+    copyCurlBtn.addEventListener('click', async ()=>{
+      const website = normalizeUrl(websiteEl.value);
+      const payload = { website };
+      const ok = await toClipboard(buildCurl(WEBHOOK_URL, payload));
+      setStatus('ok', ok ? 'cURL in Zwischenablage.' : 'Konnte cURL nicht kopieren.');
+      setTimeout(()=>setStatus(null,'Bereit.'), 1500);
+    });
+
+    copyIdBtn.addEventListener('click', async ()=>{
+      const id = idText.textContent.trim();
+      if(!id || id === 'Noch keine ID erzeugt.') return;
+      const ok = await toClipboard(id);
+      setStatus('ok', ok ? 'ID kopiert.' : 'Konnte ID nicht kopieren.');
+      setTimeout(()=>setStatus(null,'Bereit.'), 1500);
+    });
+
+    resetBtn.addEventListener('click', ()=>{
+      websiteEl.value = '';
+      responsePre.textContent = 'Noch keine Anfrage gesendet.';
+      responsePre.classList.add('muted');
+      idText.textContent = 'Noch keine ID erzeugt.';
+      copyIdBtn.disabled = true;
+      setStatus(null,'Bereit.');
+      saveLocal('content_source_form', { website:'' });
+    });
+
+    runBtn.addEventListener('click', async ()=>{
+      const raw = websiteEl.value;
+      if(!isLikelyUrl(raw)){
+        setStatus('err', 'Bitte eine gültige URL eingeben (z. B. https://beispiel.at).');
+        websiteEl.focus();
+        return;
+      }
+
+      const website = normalizeUrl(raw);
+      const payload = { website };
+
+      // persist Input
+      saveLocal('content_source_form', { website });
+
+      setLoading(true);
+      responsePre.textContent = '';
+      responsePre.classList.add('muted');
+
+      // Timeout-Controller
+      const ctrl = new AbortController();
+      const t = setTimeout(()=>ctrl.abort(), REQUEST_TIMEOUT_MS);
+
+      try{
+        const res = await fetch(WEBHOOK_URL, {
+          method:'POST',
+          mode:'cors',
+          headers:{ 'Content-Type':'application/json' },
+          body: JSON.stringify(payload),
+          signal: ctrl.signal
+        });
+        clearTimeout(t);
+
+        const text = await res.text();
+        let data = null;
+        try { data = JSON.parse(text) } catch { /* bleibt textuell */ }
+
+        if(!res.ok){
+          showResponse(text || data || ('HTTP '+res.status));
+          setStatus('err', `Fehler vom Server (HTTP ${res.status}).`);
+          copyIdBtn.disabled = true;
+          return;
+        }
+
+        // Erfolg
+        showResponse(data ?? text);
+        const id = extractId(data ?? text);
+        if(id){
+          idText.textContent = id;
+          copyIdBtn.disabled = false;
+          setStatus('ok', 'Erfolg: ContentSource-ID gefunden.');
+        }else{
+          idText.textContent = 'Keine ID im Response gefunden.';
+          copyIdBtn.disabled = true;
+          setStatus('ok', 'Erfolg: Response erhalten (keine ID erkannt).');
+        }
+
+      }catch(err){
+        const msg = err?.name === 'AbortError' ? 'Timeout nach '+(REQUEST_TIMEOUT_MS/1000)+'s.' : (err?.message || String(err));
+        showResponse('Client-Fehler: ' + msg);
+        copyIdBtn.disabled = true;
+        setStatus('err', 'Anfrage fehlgeschlagen.');
+      }finally{
+        clearTimeout(t);
+        setLoading(false);
+      }
+    });
+
+    // === Restore last input ===
+    (function init(){
+      const saved = loadLocal('content_source_form', null);
+      if(saved?.website) websiteEl.value = saved.website;
+    })();
+  </script>
+</body>
+</html>
