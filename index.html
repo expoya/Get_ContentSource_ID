@@ -203,10 +203,7 @@
     const copyIdBtn = document.getElementById('copyIdBtn');
     const copyCurlBtn = document.getElementById('copyCurlBtn');
     const resetBtn = document.getElementById('resetBtn');
-    const endpointLabel = document.getElementById('endpointLabel');
     const exampleLink = document.getElementById('exampleLink');
-
-    endpointLabel.textContent = WEBHOOK_URL;
 
     // === Utilities ===
     const saveLocal = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
